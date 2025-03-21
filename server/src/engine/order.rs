@@ -1,7 +1,7 @@
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Clone, Debug)]
-enum OrderStatus {
+pub enum OrderStatus {
     Pending,
     Matched,
     Settled,
@@ -76,3 +76,11 @@ impl Order {
         }
     }
 }
+
+impl PartialEq for Order {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Eq for Order {}

@@ -1,6 +1,4 @@
-use std::sync::{mpsc, Arc, Mutex, RwLock};
-use std::thread;
-use std::time::Duration;
+use std::sync::{Arc, RwLock};
 use super::{Order, OrdersMempool, MatchedLogs};
 use log::debug;
 // Order matching engine
@@ -9,12 +7,12 @@ use log::debug;
 // Once find the match, add the transactions into Transaction Logs
 pub struct OrderMatchingEngine {
     deviation: f64,
-    mempool: OrdersMempool,
+    mempool: Arc<RwLock<OrdersMempool>>,
     pub matched_logs: Arc<RwLock<MatchedLogs>>,
 }
 
 impl OrderMatchingEngine {
-    pub fn new(deviation: f64, mempool: OrdersMempool, matched_logs: Arc<RwLock<MatchedLogs>>) -> Self {
+    pub fn new(deviation: f64, mempool: Arc<RwLock<OrdersMempool>>, matched_logs: Arc<RwLock<MatchedLogs>>) -> Self {
         Self {
             deviation,
             mempool,
@@ -24,9 +22,11 @@ impl OrderMatchingEngine {
 
     pub fn add_order(&mut self, order: Order) {
         debug!("Adding order: {:?}", order);
-        self.mempool.add_order(order);
+        let mut mempool = self.mempool.write().unwrap();
+        mempool.add_order(order);
     }
 
+    // for zkVM bulk adding orders
     pub fn add_orders(&mut self, orders: Vec<Order>) {
         for order in orders {
             self.add_order(order);
@@ -38,14 +38,25 @@ impl OrderMatchingEngine {
         
         debug!("\nStarting matching round...");
         
-        while let (Some(mut buy_order), Some(mut sell_order)) = (
-            self.mempool.get_top_buy_order().cloned(),
-            self.mempool.get_top_sell_order().cloned()
-        ) {
+        loop {
+            let (buy_order, sell_order) = {
+                let mempool = self.mempool.read().unwrap();
+                let buy_order = mempool.get_top_buy_order().cloned();
+                let sell_order = mempool.get_top_sell_order().cloned();
+                (buy_order, sell_order)
+            };
+            
+            if buy_order.is_none() || sell_order.is_none() {
+                break;
+            }
+            
+            let mut buy_order = buy_order.unwrap();
+            let mut sell_order = sell_order.unwrap();
+            
             debug!("\nTop of order books:");
             debug!("Buy order: id={}, price={}, amount={}", 
                 buy_order.id, buy_order.price, buy_order.remaining_amount());
-                debug!("Sell order: id={}, price={}, amount={}", 
+            debug!("Sell order: id={}, price={}, amount={}", 
                 sell_order.id, sell_order.price, sell_order.remaining_amount());
             
             if !self.is_match(&buy_order, &sell_order) {
@@ -64,20 +75,24 @@ impl OrderMatchingEngine {
             sell_order.fill(match_amount);
             
             // Update or remove orders from mempool
-            if buy_order.is_filled() {
-                debug!("Removing filled buy order {}", buy_order.id);
-                self.mempool.remove_order(buy_order.id.clone());
-            } else {
-                debug!("Updating partially filled buy order {}", buy_order.id);
-                self.mempool.update_order(buy_order.clone());
-            }
-            
-            if sell_order.is_filled() {
-                debug!("Removing filled sell order {}", sell_order.id);
-                self.mempool.remove_order(sell_order.id.clone());
-            } else {
-                debug!("Updating partially filled sell order {}", sell_order.id);
-                self.mempool.update_order(sell_order.clone());
+            {
+                let mut mempool = self.mempool.write().unwrap();
+                
+                if buy_order.is_filled() {
+                    debug!("Removing filled buy order {}", buy_order.id);
+                    mempool.remove_order(buy_order.id.clone());
+                } else {
+                    debug!("Updating partially filled buy order {}", buy_order.id);
+                    mempool.update_order(buy_order.clone());
+                }
+                
+                if sell_order.is_filled() {
+                    debug!("Removing filled sell order {}", sell_order.id);
+                    mempool.remove_order(sell_order.id.clone());
+                } else {
+                    debug!("Updating partially filled sell order {}", sell_order.id);
+                    mempool.update_order(sell_order.clone());
+                }
             }
 
             self.matched_logs.write().unwrap()

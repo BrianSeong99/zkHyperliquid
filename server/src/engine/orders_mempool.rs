@@ -78,7 +78,7 @@ impl OrdersMempool {
 
     // Needed for order cancellation or order matching
     pub fn remove_order(&mut self, order_id: String) {
-        if let Some((is_buy, price)) = self.order_lookup.remove(&order_id) {
+        if let Some((is_buy, _)) = self.order_lookup.remove(&order_id) {
             let heap = if is_buy { &mut self.buy_orders } else { &mut self.sell_orders };
             // Drain and keep all entries except the specific order we want to remove
             *heap = heap.drain()
@@ -122,6 +122,55 @@ impl OrdersMempool {
         for entry in &sell_orders {
             debug!("  Sell order: id={}, price={}", entry.1.id, entry.0);
         }
+    }
+
+    // Get all orders from both buy and sell mempools
+    pub fn get_all_orders(&self) -> (Vec<Order>, Vec<Order>) {
+        let mut buy_orders = Vec::new();
+        let mut sell_orders = Vec::new();
+        // Add buy orders
+        for entry in &self.buy_orders {
+            buy_orders.push(entry.1.clone());
+        }
+        
+        // Add sell orders
+        for entry in &self.sell_orders {
+            sell_orders.push(entry.1.clone());
+        }
+        
+        (buy_orders, sell_orders)
+    }
+    
+    // Get an order by ID
+    pub fn get_order_by_id(&self, order_id: &str) -> Option<&Order> {
+        if let Some((is_buy, _)) = self.order_lookup.get(order_id) {
+            let heap = if *is_buy { &self.buy_orders } else { &self.sell_orders };
+            
+            for entry in heap {
+                if entry.1.id == order_id {
+                    return Some(&entry.1);
+                }
+            }
+        }
+        
+        None
+    }
+    
+    // Remove an order by ID and return true if found and removed
+    pub fn remove_order_by_id(&mut self, order_id: &str) -> bool {
+        if let Some((is_buy, _)) = self.order_lookup.remove(order_id) {
+            let heap = if is_buy { &mut self.buy_orders } else { &mut self.sell_orders };
+            
+            // Drain and keep all entries except the specific order we want to remove
+            let original_size = heap.len();
+            *heap = heap.drain()
+                .filter(|entry| entry.1.id != order_id)
+                .collect();
+                
+            return heap.len() < original_size;
+        }
+        
+        false
     }
 }
 

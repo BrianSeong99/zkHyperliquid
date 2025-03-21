@@ -12,12 +12,11 @@ use tokio::sync::mpsc;
 use std::sync::{Arc, RwLock};
 use lazy_static::lazy_static;
 use std::time::Duration;
-use rand::Rng;
 use log::debug;
-use std::time::Instant;
 
 lazy_static! {
     pub static ref MATCHED_LOGS: Arc<RwLock<MatchedLogs>> = Arc::new(RwLock::new(MatchedLogs::new()));
+    pub static ref ORDERS_MEMPOOL: Arc<RwLock<OrdersMempool>> = Arc::new(RwLock::new(OrdersMempool::new()));
 }
 
 pub struct MatchingEngine {
@@ -28,10 +27,9 @@ pub struct MatchingEngine {
 impl MatchingEngine {
     pub fn new(deviation: f64) -> (Self, mpsc::Sender<Order>) {
         let (order_tx, order_rx) = mpsc::channel(1000);
-        let mempool = OrdersMempool::new();
         let matching_engine = OrderMatchingEngine::new(
             deviation,
-            mempool,
+            Arc::clone(&ORDERS_MEMPOOL),
             Arc::clone(&MATCHED_LOGS),
         );
 
