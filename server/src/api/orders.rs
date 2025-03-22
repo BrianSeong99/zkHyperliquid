@@ -8,12 +8,15 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
 use std::sync::{Arc, RwLock};
 use std::collections::HashMap;
+use tokio::sync::Mutex;
 
 use crate::engine::{Order, OrdersMempool, MATCHED_LOGS, ORDERS_MEMPOOL};
+use crate::user::UserDatabase;
 
 #[derive(Clone)]
 pub struct AppState {
     pub order_tx: mpsc::Sender<Order>,
+    pub user_db: Arc<Mutex<UserDatabase>>,
 }
 
 #[derive(Deserialize)]
@@ -204,7 +207,9 @@ mod tests {
     #[tokio::test]
     async fn test_place_order() {
         let (order_tx, mut order_rx) = mpsc::channel(1000);
-        let state = AppState { order_tx };
+        let uri = std::env::var("MONGODB_URI").unwrap_or_else(|_| "mongodb://localhost:27017".to_string());
+        let user_db = Arc::new(Mutex::new(UserDatabase::new(&uri)));
+        let state = AppState { order_tx, user_db };
 
         let order = Order::new(
             "order_1".to_string(),
@@ -224,7 +229,9 @@ mod tests {
     #[tokio::test]
     async fn test_get_orders() {
         let (order_tx, _) = mpsc::channel(1000);
-        let state = AppState { order_tx };
+        let uri = std::env::var("MONGODB_URI").unwrap_or_else(|_| "mongodb://localhost:27017".to_string());
+        let user_db = Arc::new(Mutex::new(UserDatabase::new(&uri)));
+        let state = AppState { order_tx, user_db };
 
         // Add order to the global mempool
         let mut mempool = ORDERS_MEMPOOL.write().unwrap();
@@ -253,7 +260,9 @@ mod tests {
     #[tokio::test]
     async fn test_get_order_by_id() {
         let (order_tx, _) = mpsc::channel(1000);
-        let state = AppState { order_tx };
+        let uri = std::env::var("MONGODB_URI").unwrap_or_else(|_| "mongodb://localhost:27017".to_string());
+        let user_db = Arc::new(Mutex::new(UserDatabase::new(&uri)));
+        let state = AppState { order_tx, user_db };
 
         // Add order to the global mempool
         let mut mempool = ORDERS_MEMPOOL.write().unwrap();
@@ -275,7 +284,9 @@ mod tests {
     #[tokio::test]
     async fn test_cancel_order() {
         let (order_tx, _) = mpsc::channel(1000);
-        let state = AppState { order_tx };
+        let uri = std::env::var("MONGODB_URI").unwrap_or_else(|_| "mongodb://localhost:27017".to_string());
+        let user_db = Arc::new(Mutex::new(UserDatabase::new(&uri)));
+        let state = AppState { order_tx, user_db };
 
         // Add order to the global mempool
         let mut mempool = ORDERS_MEMPOOL.write().unwrap();

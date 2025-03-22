@@ -1,35 +1,84 @@
 use mongodb::{
+    bson::{doc, to_document},
     Client,
     options::ClientOptions,
-    sync::Collection,
+    Collection,
 };
-use crate::user_db::user::User;
+use serde::{Serialize, Deserialize};
+use std::error::Error;
+use crate::user::User;
 
 pub struct UserDatabase {
-    collection: Collection<User>,
+    uri: String,
+    client: Option<Client>,
+    collection: Option<Collection<User>>,
 }
 
 impl UserDatabase {
-    pub fn new(uri: &str) -> Result<Self, Box<dyn std::error::Error>> {
-        let client_options = ClientOptions::parse(uri)?;
-        let client = Client::with_options(client_options)?;
-        let db = client.database("user_db");
-        let collection = db.collection("users");
-        Ok(Self { collection })
+    pub fn new(uri: &str) -> Self {
+        // Just store the URI, don't connect yet
+        Self { 
+            uri: uri.to_string(),
+            client: None,
+            collection: None,
+        }
     }
 
-    pub fn get_user(&self, address: &str) -> Result<Option<User>, Box<dyn std::error::Error>> {
-        let user = self.collection.find_one(doc! { "address": address }, None)?;
+    // Initialize the connection when needed
+    pub async fn init(&mut self) -> Result<(), Box<dyn Error>> {
+        if self.client.is_none() {
+            let client = Client::with_uri_str(&self.uri).await?;
+            let db = client.database("zkHyperLiquid");
+            let collection = db.collection("users");
+            
+            self.client = Some(client);
+            self.collection = Some(collection);
+        }
+        Ok(())
+    }
+
+    // Make sure we're connected before operations
+    async fn ensure_connected(&mut self) -> Result<(), Box<dyn Error>> {
+        if self.collection.is_none() {
+            self.init().await?;
+        }
+        Ok(())
+    }
+
+    pub async fn get_user(&mut self, address: &str) -> Result<Option<User>, Box<dyn Error>> {
+        self.ensure_connected().await?;
+        let collection = self.collection.as_ref().unwrap();
+        
+        let filter = doc! { "address": address };
+        let user = collection.find_one(filter).await?;
         Ok(user)
     }
 
-    pub fn update_user(&self, address: &str, user: &User) -> Result<(), Box<dyn std::error::Error>> {
-        self.collection.update_one(doc! { "address": address }, doc! { "$set": user }, None)?;
+    pub async fn update_user(&mut self, user: &User) -> Result<(), Box<dyn Error>> {
+        self.ensure_connected().await?;
+        let collection = self.collection.as_ref().unwrap();
+        
+        let filter = doc! { "address": &user.address };
+        let update = doc! { "$set": to_document(user)? };
+        collection.update_one(filter, update).await?;
         Ok(())
     }
 
-    pub fn create_user(&self, user: &User) -> Result<(), Box<dyn std::error::Error>> {
-        self.collection.insert_one(user, None)?;
+    pub async fn create_user(&mut self, user: &User) -> Result<(), Box<dyn Error>> {
+        self.ensure_connected().await?;
+        let collection = self.collection.as_ref().unwrap();
+        
+        collection.insert_one(user).await?;
         Ok(())
+    }
+
+    pub async fn get_or_create_user(&mut self, address: &str) -> Result<User, Box<dyn Error>> {
+        if let Some(user) = self.get_user(address).await? {
+            Ok(user)
+        } else {
+            let user = User::new(address.to_string());
+            self.create_user(&user).await?;
+            Ok(user)
+        }
     }
 }
