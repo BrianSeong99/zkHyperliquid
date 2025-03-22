@@ -68,4 +68,28 @@ impl MatchedLogs {
         }
         Some(result)
     }
+
+    pub fn get_logs_by_user_id(&self, user_id: &str) -> Vec<&MatchedEntry> {
+        self.logs.values()
+            .flat_map(|heap| heap.iter())
+            .filter(|log| log.1.user_id == user_id || log.2.user_id == user_id)
+            .collect()
+    }
+
+    pub fn get_orders_by_user_id(&self, user_id: &str) -> Vec<Order> {
+        self.logs.values()
+            .flat_map(|heap| heap.iter())
+            .filter(|log| log.1.user_id == user_id || log.2.user_id == user_id)
+            .flat_map(|log| {
+                let mut orders = Vec::new();
+                if log.1.user_id == user_id {
+                    orders.push(log.1.clone());
+                }
+                if log.2.user_id == user_id {
+                    orders.push(log.2.clone());
+                }
+                orders
+            })
+            .collect()
+    }
 }

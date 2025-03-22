@@ -12,7 +12,7 @@ use std::sync::{Arc, RwLock};
 use crate::user::{User, UserDatabase};
 use crate::api::orders::AppState;
 
-use crate::engine::{Order, ORDERS_MEMPOOL};
+use crate::engine::{Order, ORDERS_MEMPOOL, MATCHED_LOGS};
 
 
 #[derive(Deserialize)]
@@ -150,6 +150,14 @@ pub async fn get_user_orders(
 ) -> Result<Json<UserOrdersResponse>, StatusCode> {
     // Read from the mempool
     let mempool = ORDERS_MEMPOOL.read().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    let orders = mempool.get_orders_by_user_id(&address);
+    let mempool_user_orders = mempool.get_orders_by_user_id(&address);
+    
+    // Read from the matched logs
+    let matched_logs = MATCHED_LOGS.read().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let matched_user_orders = matched_logs.get_orders_by_user_id(&address);
+    
+    // Read from the block database
+
+    let orders = [mempool_user_orders, matched_user_orders].concat();
     Ok(Json(UserOrdersResponse::from(orders)))
 }   
