@@ -172,5 +172,21 @@ impl OrdersMempool {
         
         false
     }
+
+    // Get all mempoolorders by user ID
+    pub fn get_orders_by_user_id(&self, user_id: &str) -> Vec<&Order> {
+        let mut orders = Vec::new();
+        for entry in &self.buy_orders {
+            if entry.1.user_id == user_id {
+                orders.push(&entry.1);
+            }
+        }
+        for entry in &self.sell_orders {
+            if entry.1.user_id == user_id {
+                orders.push(&entry.1);
+            }
+        }
+        orders
+    }
 }
 

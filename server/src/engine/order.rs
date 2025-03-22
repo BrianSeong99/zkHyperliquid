@@ -1,13 +1,16 @@
 use std::time::{SystemTime, UNIX_EPOCH};
+use serde::{Serialize, Deserialize};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum OrderStatus {
     Pending,
-    Matched,
+    PartiallyFilled,
+    Filled,
+    Cancelled,
     Settled,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Order {
     pub id: String,
     pub user_id: String,
@@ -20,6 +23,14 @@ pub struct Order {
     pub created_at: u64,
     pub updated_at: u64,
 }
+
+impl PartialEq for Order {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Eq for Order {}
 
 impl Order {
     // Create a new order with a given id, user_id, pair_id, amount, price, and side
@@ -72,15 +83,7 @@ impl Order {
     pub fn fill(&mut self, amount: u64) {
         self.filled_amount += amount;
         if self.is_filled() {
-            self.status = OrderStatus::Matched;
+            self.status = OrderStatus::Filled;
         }
     }
 }
-
-impl PartialEq for Order {
-    fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
-    }
-}
-
-impl Eq for Order {}

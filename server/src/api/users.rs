@@ -12,6 +12,9 @@ use std::sync::{Arc, RwLock};
 use crate::user::{User, UserDatabase};
 use crate::api::orders::AppState;
 
+use crate::engine::{Order, ORDERS_MEMPOOL};
+
+
 #[derive(Deserialize)]
 pub struct CreateUserRequest {
     address: String,
@@ -42,6 +45,24 @@ pub struct UpdateBalanceRequest {
     token_id: String,
     amount: u64,
     is_addition: bool, // true for adding balance, false for subtracting
+}
+
+#[derive(Serialize, Debug)]
+pub struct UserOrdersResponse {
+    orders: Vec<Order>,
+}
+
+impl From<Vec<Order>> for UserOrdersResponse {
+    fn from(orders: Vec<Order>) -> Self {
+        Self { orders }
+    }
+}
+
+impl From<Vec<&Order>> for UserOrdersResponse {
+    fn from(orders: Vec<&Order>) -> Self {
+        let owned_orders: Vec<Order> = orders.iter().map(|&order| order.clone()).collect();
+        Self { orders: owned_orders }
+    }
 }
 
 // Create a new user
@@ -121,11 +142,14 @@ pub async fn update_balance(
     Ok(Json(UserResponse::from(user)))
 }
 
-// // Get user orders
-// // including orders in all status, pending, matched, settled
-// pub async fn get_user_orders(
-//     State(state): State<AppState>,
-//     Path(address): Path<String>,
-// ) -> Result<Json<UserResponse>, StatusCode> {
-
-// }   
+// Get user orders
+// including orders in all status, pending, matched, settled
+pub async fn get_user_orders(
+    State(state): State<AppState>,
+    Path(address): Path<String>,
+) -> Result<Json<UserOrdersResponse>, StatusCode> {
+    // Read from the mempool
+    let mempool = ORDERS_MEMPOOL.read().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let orders = mempool.get_orders_by_user_id(&address);
+    Ok(Json(UserOrdersResponse::from(orders)))
+}   

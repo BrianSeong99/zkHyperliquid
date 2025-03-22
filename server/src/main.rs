@@ -14,7 +14,7 @@ use std::net::SocketAddr;
 use tokio::sync::Mutex;
 
 use crate::api::orders::{AppState, place_order, get_orders, get_order_by_id, cancel_order};
-use crate::api::users::{create_user, get_user, update_balance};
+use crate::api::users::{create_user, get_user, update_balance, get_user_orders};
 // use crate::api::blocks::get_matched_orders;
 // use crate::api::users::get_user;
 
@@ -49,6 +49,7 @@ async fn main() {
         .route("/api/users", post(create_user))
         .route("/api/users/{address}", get(get_user))
         .route("/api/users/{address}/balance", put(update_balance))
+        .route("/api/users/{address}/orders", get(get_user_orders))
         .with_state(app_state);
     
     let app = Router::new()
