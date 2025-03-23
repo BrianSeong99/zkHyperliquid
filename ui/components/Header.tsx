@@ -4,7 +4,7 @@ import { Settings } from "lucide-react";
 
 export function Header() {
   return (
-    <header className="w-full px-6 py-2 flex items-center justify-between bg-black text-white">
+    <header className="w-full px-6 py-2 flex items-center justify-between bg-[#0f0f0f] text-white border-b border-gray-800">
       <div className="flex items-center gap-8">
         {/* Logo */}
         <div className="flex items-center gap-2">
@@ -13,21 +13,24 @@ export function Header() {
 
         {/* Navigation Links */}
         <nav className="hidden md:flex items-center gap-6">
-          <Link href="/trade" className="hover:text-gray-300 transition-colors">
+          <Link
+            href="/trade"
+            className="hover:text-[#1e53e5] transition-colors"
+          >
             Trade
           </Link>
-          <Link
-            href="/portfolio"
-            className="hover:text-gray-300 transition-colors"
+          <span
+            className="text-gray-500 cursor-not-allowed"
+            title="Coming soon"
           >
             Portfolio
-          </Link>
-          <Link
-            href="/leaderboard"
-            className="hover:text-gray-300 transition-colors"
+          </span>
+          <span
+            className="text-gray-500 cursor-not-allowed"
+            title="Coming soon"
           >
             Leaderboard
-          </Link>
+          </span>
         </nav>
       </div>
 
@@ -36,7 +39,7 @@ export function Header() {
         <ConnectButton />
 
         {/* Settings Icon */}
-        <button className="p-2 rounded-full hover:bg-gray-800 transition-colors">
+        <button className="p-2 rounded-full hover:bg-[#1a1a1a] transition-colors">
           <Settings size={20} />
         </button>
       </div>
