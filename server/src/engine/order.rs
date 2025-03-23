@@ -3,11 +3,12 @@ use serde::{Serialize, Deserialize};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum OrderStatus {
-    Pending,
-    PartiallyFilled,
-    Filled,
-    Cancelled,
-    Settled,
+    Pending, // pending to be filled
+    PartiallyFilled, // partially filled
+    Filled, // fully filled
+    Cancelled, // cancelled
+    Batched, // batched to by epoch block builder
+    Settled, // settled on L1
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -16,7 +17,7 @@ pub struct Order {
     pub user_id: String,
     pub pair_id: String,
     pub amount: u64,
-    pub filled_amount: u64,  // Track how much has been filled
+    pub filled_amount: u64,
     pub price: u64,
     pub side: bool,
     pub status: OrderStatus,
