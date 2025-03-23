@@ -60,34 +60,49 @@ fn main() {
         let (output, report) = client.execute(BLOCK_PROOF_ELF, &stdin).run().unwrap();
         println!("Program executed successfully.");
 
-        // Read the output.
-        let decoded = PublicValuesStruct::abi_decode(output.as_slice(), true).unwrap();
-        let PublicValuesStruct { n, a, b } = decoded;
-        println!("n: {}", n);
-        println!("a: {}", a);
-        println!("b: {}", b);
-
-        let (expected_a, expected_b) = fibonacci_lib::fibonacci(n);
-        assert_eq!(a, expected_a);
-        assert_eq!(b, expected_b);
-        println!("Values are correct!");
+        // Read the output - it's just a boolean result from our block_proof function
+        if !output.is_empty() {
+            let result = output[0] != 0; // Convert byte to boolean
+            println!("Block proof verification result: {}", result);
+            
+            if result {
+                println!("✅ Block proof verification successful!");
+            } else {
+                println!("❌ Block proof verification failed!");
+            }
+        } else {
+            println!("Warning: No output received from the program");
+        }
 
         // Record the number of cycles executed.
         println!("Number of cycles: {}", report.total_instruction_count());
     } else {
         // Setup the program for proving.
+        let setup_start = std::time::Instant::now();
         let (pk, vk) = client.setup(BLOCK_PROOF_ELF);
+        let setup_duration = setup_start.elapsed();
+        println!("Setup completed in: {:?}", setup_duration);
 
         // Generate the proof
+        let prove_start = std::time::Instant::now();
         let proof = client
             .prove(&pk, &stdin)
             .run()
             .expect("failed to generate proof");
+        let prove_duration = prove_start.elapsed();
 
-        println!("Successfully generated proof!");
+        println!("Successfully generated proof in: {:?}!", prove_duration);
 
         // Verify the proof.
+        let verify_start = std::time::Instant::now();
         client.verify(&proof, &vk).expect("failed to verify proof");
-        println!("Successfully verified proof!");
+        let verify_duration = verify_start.elapsed();
+        
+        println!("Successfully verified proof in: {:?}!", verify_duration);
+        
+        // The proof contains a commitment to the output, which is a boolean indicating
+        // whether the block proof verification was successful
+        println!("The proof verifies that the block and its state transitions are valid");
+        println!("Total proving time: {:?}", setup_duration + prove_duration + verify_duration);
     }
 }

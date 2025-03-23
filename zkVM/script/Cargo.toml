@@ -23,7 +23,7 @@ serde = { version = "1.0.200", default-features = false, features = ["derive"] }
 clap = { version = "4.0", features = ["derive", "env"] }
 tracing = "0.1.40"
 hex = "0.4.3"
-alloy-sol-types = { workspace = true }
+# alloy-sol-types = "0.6.0"
 block-proof-lib = { path = "../lib" }
 dotenv = "0.15.0"
 

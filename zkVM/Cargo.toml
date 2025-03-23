@@ -7,7 +7,7 @@ members = [
 resolver = "2"
 
 [workspace.dependencies]
-alloy-sol-types = "0.7.7"
+# alloy-sol-types = "0.7.7"
 
 # [package]
 # name = "zkvm"
