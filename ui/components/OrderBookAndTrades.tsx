@@ -8,7 +8,7 @@ export function OrderBookAndTrades() {
   );
 
   return (
-    <div className="bg-gray-900 rounded-lg overflow-hidden flex flex-col h-full">
+    <div className="bg-[#0f0f0f] rounded-lg overflow-hidden flex flex-col h-full">
       {/* Header with tabs */}
       <div className="flex border-b border-gray-800 relative shrink-0">
         <button
@@ -30,7 +30,7 @@ export function OrderBookAndTrades() {
 
         {/* Animated bottom border */}
         <div
-          className="absolute bottom-0 h-0.5 bg-blue-500 transition-all duration-300 ease-in-out"
+          className="absolute bottom-0 h-0.5 bg-[#1e53e5] transition-all duration-300 ease-in-out"
           style={{
             left: activeTab === "orderbook" ? "0" : "50%",
             width: "50%",

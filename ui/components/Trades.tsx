@@ -50,7 +50,7 @@ export function Trades() {
   ];
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col bg-[#0f0f0f]">
       {/* Column Headers */}
       <div className="grid grid-cols-3 text-xs text-gray-400 px-4 py-2 border-b border-gray-800 shrink-0">
         <div className="text-left">Price (POL)</div>
@@ -67,7 +67,7 @@ export function Trades() {
           >
             <div
               className={`text-left ${
-                trade.isBuy ? "text-green-500" : "text-red-500"
+                trade.isBuy ? "text-[#089981]" : "text-[#f23645]"
               }`}
             >
               {trade.price.toFixed(0)}
