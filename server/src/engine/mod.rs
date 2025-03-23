@@ -14,6 +14,9 @@ use lazy_static::lazy_static;
 use std::time::Duration;
 use log::debug;
 
+use tokio::sync::Mutex;
+use crate::user::UserDatabase;
+
 lazy_static! {
     pub static ref MATCHED_LOGS: Arc<RwLock<MatchedLogs>> = Arc::new(RwLock::new(MatchedLogs::new()));
     pub static ref ORDERS_MEMPOOL: Arc<RwLock<OrdersMempool>> = Arc::new(RwLock::new(OrdersMempool::new()));
@@ -25,13 +28,14 @@ pub struct MatchingEngine {
 }
 
 impl MatchingEngine {
-    pub fn new(deviation: f64) -> (Self, mpsc::Sender<Order>) {
+    pub fn new(deviation: f64, user_db: Arc<Mutex<UserDatabase>>) -> (Self, mpsc::Sender<Order>) {
         let (order_tx, order_rx) = mpsc::channel(1000);
         let matching_engine = OrderMatchingEngine::new(
             deviation,
             Arc::clone(&ORDERS_MEMPOOL),
             Arc::clone(&MATCHED_LOGS),
         );
+        MATCHED_LOGS.write().unwrap().set_user_db(user_db);
 
         (
             Self {
@@ -65,8 +69,8 @@ impl MatchingEngine {
     }
 }
 
-pub async fn run_order_pipeline(deviation: f64) -> mpsc::Sender<Order> {
-    let (mut engine, order_tx) = MatchingEngine::new(deviation);
+pub async fn run_order_pipeline(deviation: f64, user_db: Arc<Mutex<UserDatabase>>) -> mpsc::Sender<Order> {
+    let (mut engine, order_tx) = MatchingEngine::new(deviation, user_db);
     
     tokio::spawn(async move {
         engine.run(Duration::from_millis(1)).await;
@@ -91,7 +95,9 @@ mod tests {
         if std::env::var("RUST_LOG").is_ok() {
             env_logger::init();
         }
-        let order_tx = run_order_pipeline(0.05).await;
+        let uri = std::env::var("MONGODB_URI").unwrap_or_else(|_| "mongodb://localhost:27017".to_string());
+        let user_db = Arc::new(Mutex::new(UserDatabase::new(&uri)));
+        let order_tx = run_order_pipeline(0.05, user_db).await;
 
         let num_orders = 800;
         println!("Submitting {} orders", num_orders);
@@ -131,13 +137,13 @@ mod tests {
         // Read the matched logs
         match MATCHED_LOGS.write() {
             Ok(mut logs) => {
-                match logs.pop_top_n_matched_orders("POL-ETH", 1000) {
+                match logs.pop_top_n_matched_logs("POL-ETH", 1000) {
                     Some(matches) => {
                         println!("Number of matches: {}", matches.len());
-                        for (buy_order, sell_order, amount) in matches {
+                        for entry in matches {
                             debug!("Match: Buy order {} amount {} at price {} - Sell order {} amount {} at price {}", 
-                                buy_order.id, amount, buy_order.price,
-                                sell_order.id, amount, sell_order.price);
+                                entry.buy_order.id, entry.matched_amount, entry.buy_order.price,
+                                entry.sell_order.id, entry.matched_amount, entry.sell_order.price);
                         }
                     }
                     None => println!("No matches found")

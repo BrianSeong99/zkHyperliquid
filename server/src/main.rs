@@ -23,12 +23,13 @@ async fn main() {
     // Initialize logger
     env_logger::init();
     
-    // Set up the order matching engine
-    let order_tx = run_order_pipeline(0.05).await;
-    
     // Initialize user database
     let uri = std::env::var("MONGODB_URI").unwrap_or_else(|_| "mongodb://localhost:27017".to_string());
     let user_db = Arc::new(Mutex::new(UserDatabase::new(&uri)));
+
+    // Set up the order matching engine
+    let order_tx = run_order_pipeline(0.0, user_db.clone()).await;
+    
     
     // Create the application state
     let app_state = AppState {

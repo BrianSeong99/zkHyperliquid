@@ -57,18 +57,16 @@ impl User {
         self.updated_at = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
     }
 
-    pub fn add_balance(&mut self, token_id: String, balance: u64) {
-        let current_balance = self.get_balance(&token_id);
-        self.set_balance(token_id, current_balance + balance);
+    pub fn add_balance(&mut self, token_id: String, amount: u64) {
+        *self.balances.entry(token_id.to_string()).or_insert(0) += amount;
+        self.updated_at = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
     }
 
-    pub fn sub_balance(&mut self, token_id: String, balance: u64) {
-        let current_balance = self.get_balance(&token_id);
-        if current_balance >= balance {
-            self.set_balance(token_id, current_balance - balance);
-        } else {
-            panic!("Insufficient balance");
+    pub fn sub_balance(&mut self, token_id: String, amount: u64) {
+        if let Some(balance) = self.balances.get_mut(&token_id) {
+            *balance = balance.saturating_sub(amount);
         }
+        self.updated_at = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
     }
     
 }
