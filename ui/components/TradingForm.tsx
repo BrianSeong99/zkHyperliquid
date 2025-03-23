@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useAccount } from "wagmi";
 
 // Types
 interface TradingFormProps {
@@ -6,27 +7,42 @@ interface TradingFormProps {
   setOrderType: (type: "market" | "limit") => void;
   side: "buy" | "sell";
   setSide: (side: "buy" | "sell") => void;
+  currentPrice?: string; // Current market price from API
+  isLoading?: boolean; // Whether price data is loading
+  marketPair?: string; // Current market pair (e.g., "POL/USDC")
 }
 
-// Constants and utilities
-const ASSETS = {
+// Default assets if no market pair is provided
+const DEFAULT_ASSETS = {
   BASE: "POL",
   QUOTE: "USDC",
 };
 
 const BALANCES = {
-  [ASSETS.QUOTE]: 9.8,
-  [ASSETS.BASE]: 100,
+  USDC: 9.8,
+  POL: 100,
+  BTC: 0.01,
+  ETH: 0.5,
+  SOL: 5,
 };
 
 // Common components
 interface AvailableBalanceProps {
   side: "buy" | "sell";
+  assets: {
+    BASE: string;
+    QUOTE: string;
+  };
+  balances: Record<string, number>;
 }
 
-const AvailableBalance = ({ side }: AvailableBalanceProps) => {
-  const balanceAsset = side === "buy" ? ASSETS.QUOTE : ASSETS.BASE;
-  const balanceAmount = BALANCES[balanceAsset];
+const AvailableBalance = ({
+  side,
+  assets,
+  balances,
+}: AvailableBalanceProps) => {
+  const balanceAsset = side === "buy" ? assets.QUOTE : assets.BASE;
+  const balanceAmount = balances[balanceAsset] || 0; // Default to 0 if balance not found
 
   return (
     <div>
@@ -95,9 +111,16 @@ const InputField = ({ label, value, onChange, asset }: InputFieldProps) => {
 interface OrderButtonProps {
   side: "buy" | "sell";
   isValid: boolean;
+  onClick: () => void;
+  isSubmitting: boolean;
 }
 
-const OrderButton = ({ side, isValid }: OrderButtonProps) => (
+const OrderButton = ({
+  side,
+  isValid,
+  onClick,
+  isSubmitting,
+}: OrderButtonProps) => (
   <div>
     <button
       className={`w-full py-3 rounded-md font-medium ${
@@ -107,9 +130,10 @@ const OrderButton = ({ side, isValid }: OrderButtonProps) => (
             : "bg-[#f23645] text-white"
           : "bg-[#1a1a1a] text-gray-400"
       }`}
-      disabled={!isValid}
+      disabled={!isValid || isSubmitting}
+      onClick={onClick}
     >
-      Place Order
+      {isSubmitting ? "Submitting..." : "Place Order"}
     </button>
   </div>
 );
@@ -125,67 +149,181 @@ const FeesDisplay = ({}: FeesDisplayProps) => (
   </div>
 );
 
+// API submit function
+const submitOrder = async (orderData: {
+  user_id: string;
+  pair_id: string;
+  amount: number;
+  price?: number;
+  side: boolean;
+}) => {
+  try {
+    // Convert decimal values to integers with 6 decimal places (multiply by 10^6)
+    const DECIMALS = 6;
+
+    // Helper function to convert float to raw integer with 6 decimal precision
+    const floatToInteger = (value: number): number => {
+      // Simply multiply by 10^DECIMALS and round to avoid floating point precision issues
+      const result = Math.round(value * Math.pow(10, DECIMALS));
+
+      // Check if the result exceeds u64 max value (2^64 - 1)
+      // Using a safe approximation since we can't represent the full u64 max in JavaScript
+      const U64_MAX_SAFE_APPROX = Number.MAX_SAFE_INTEGER; // This is conservative but safer
+
+      if (result > U64_MAX_SAFE_APPROX || result < 0) {
+        throw new Error(
+          `Value ${value} would result in an integer that exceeds allowed limits after conversion`
+        );
+      }
+
+      return result;
+    };
+
+    // Create a copy of the order data with converted values
+    const formattedOrderData = {
+      ...orderData,
+      // Convert amount to integer with 6 decimals
+      amount: floatToInteger(orderData.amount),
+      // Convert price to integer with 6 decimals if present
+      price: orderData.price ? floatToInteger(orderData.price) : undefined,
+    };
+
+    console.log("Submitting order:", orderData);
+    console.log("Formatted with 6 decimals as integers:", formattedOrderData);
+
+    // Using the proper URL with correct port (3000) as defined in the server
+    const response = await fetch("http://localhost:3000/api/orders", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(formattedOrderData),
+      // Include credentials for CORS
+      credentials: "include",
+    });
+
+    console.log("Response:", response);
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Server error: ${response.status}`, errorText);
+      throw new Error(`Error: ${response.status} - ${errorText}`);
+    }
+    console.log("Response ok");
+
+    // Get the order data from the response
+    const orderResponse = await response.json();
+    console.log("Order placed successfully:", orderResponse);
+
+    // Add the order to the orders table if the addOrderToTable function exists
+    if (typeof window !== "undefined" && (window as any).addOrderToTable) {
+      try {
+        (window as any).addOrderToTable(orderResponse);
+      } catch (addOrderError) {
+        console.error("Error adding order to table:", addOrderError);
+        // Don't throw here, as the order was successfully placed
+      }
+    }
+
+    return orderResponse;
+  } catch (error) {
+    console.error("Failed to submit order:", error);
+    throw error;
+  }
+};
+
 // Order Form Components
-const MarketOrderForm = ({ side }: { side: "buy" | "sell" }) => {
+interface OrderFormProps {
+  side: "buy" | "sell";
+  orderType: "market" | "limit";
+  currentPrice?: string;
+  isLoading?: boolean;
+  assets: {
+    BASE: string;
+    QUOTE: string;
+  };
+  balances: {
+    [asset: string]: number;
+  };
+}
+
+const MarketOrderForm = ({
+  side,
+  orderType,
+  currentPrice,
+  isLoading,
+  assets,
+  balances,
+}: OrderFormProps) => {
+  const { address, isConnected } = useAccount();
   const [size, setSize] = useState<string>("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Calculate order value based on current price
+  const orderValue =
+    currentPrice && size ? Number(currentPrice) * Number(size) : null;
 
   // Determine if button should be enabled
-  const isValid = size !== "" && Number(size) > 0;
+  const isValid = size !== "" && Number(size) > 0 && isConnected && !!address;
+
+  const handleSubmit = async () => {
+    if (!isValid || !address || !currentPrice) return;
+
+    setError(null);
+    setIsSubmitting(true);
+
+    try {
+      const result = await submitOrder({
+        user_id: address,
+        pair_id: `${assets.BASE}/${assets.QUOTE}`,
+        amount: Number(size),
+        price: Number(currentPrice), // Use current market price for market orders
+        side: side === "buy", // true for buy, false for sell
+      });
+
+      // Add slight delay before resetting form
+      setTimeout(() => {
+        // Reset form on success
+        setSize("");
+        // Show success message
+        setError(null);
+      }, 500);
+
+      return result;
+    } catch (err: any) {
+      console.error("Market order submission error:", err);
+
+      // Extract detailed error message if available
+      let errorMessage = "Failed to submit order. Please try again.";
+      if (err.message) {
+        // Check if it's a server error with details
+        const serverErrorMatch = err.message.match(/Error: \d+ - (.*)/);
+        if (serverErrorMatch && serverErrorMatch[1]) {
+          errorMessage = serverErrorMatch[1];
+        } else {
+          errorMessage = err.message;
+        }
+      }
+
+      setError(errorMessage);
+    } finally {
+      // Delay setting isSubmitting to false slightly to ensure state is updated correctly
+      setTimeout(() => {
+        setIsSubmitting(false);
+      }, 200);
+    }
+  };
 
   return (
     <div className="space-y-4 flex flex-col h-full">
       <div className="space-y-4 flex-grow">
-        <AvailableBalance side={side} />
+        <AvailableBalance side={side} assets={assets} balances={balances} />
 
         <InputField
-          label={`Size (${ASSETS.BASE})`}
+          label={`Size (${assets.BASE})`}
           value={size}
           onChange={(e) => setSize(e.target.value)}
-          asset={ASSETS.BASE}
-        />
-
-        <div>
-          <label className="block text-sm text-gray-400 mb-1">
-            Order Value
-          </label>
-          <div className="text-sm">Market Price ({ASSETS.QUOTE})</div>
-        </div>
-      </div>
-
-      <FeesDisplay />
-      <OrderButton side={side} isValid={isValid} />
-    </div>
-  );
-};
-
-const LimitOrderForm = ({ side }: { side: "buy" | "sell" }) => {
-  const [price, setPrice] = useState<string>("");
-  const [size, setSize] = useState<string>("");
-
-  // Calculate order value
-  const orderValue = price && size ? Number(price) * Number(size) : null;
-
-  // Determine if button should be enabled
-  const isValid =
-    price !== "" && size !== "" && Number(price) > 0 && Number(size) > 0;
-
-  return (
-    <div className="space-y-2 flex flex-col h-full">
-      <div className="space-y-4 flex-grow">
-        <AvailableBalance side={side} />
-
-        <InputField
-          label={`Price (${ASSETS.QUOTE})`}
-          value={price}
-          onChange={(e) => setPrice(e.target.value)}
-          asset={ASSETS.QUOTE}
-        />
-
-        <InputField
-          label={`Size (${ASSETS.BASE})`}
-          value={size}
-          onChange={(e) => setSize(e.target.value)}
-          asset={ASSETS.BASE}
+          asset={assets.BASE}
         />
 
         <div>
@@ -193,13 +331,150 @@ const LimitOrderForm = ({ side }: { side: "buy" | "sell" }) => {
             Order Value
           </label>
           <div className="text-sm">
-            {orderValue ? `${orderValue.toFixed(2)} ${ASSETS.QUOTE}` : "N/A"}
+            {isLoading ? (
+              <span className="h-4 w-16 bg-gray-700 animate-pulse rounded inline-block"></span>
+            ) : currentPrice ? (
+              <div>
+                <div>
+                  Market Price: ${currentPrice} {assets.QUOTE}
+                </div>
+                {orderValue && (
+                  <div className="mt-2">
+                    Value: ~{orderValue.toFixed(2)} {assets.QUOTE}
+                  </div>
+                )}
+              </div>
+            ) : (
+              "Market Price Unavailable"
+            )}
           </div>
         </div>
+
+        {error && <div className="text-sm text-[#f23645] mt-2">{error}</div>}
       </div>
 
       <FeesDisplay />
-      <OrderButton side={side} isValid={isValid} />
+      <OrderButton
+        side={side}
+        isValid={isValid && !!currentPrice && !isLoading}
+        onClick={handleSubmit}
+        isSubmitting={isSubmitting}
+      />
+    </div>
+  );
+};
+
+const LimitOrderForm = ({
+  side,
+  orderType,
+  assets,
+  balances,
+}: OrderFormProps) => {
+  const { address, isConnected } = useAccount();
+  const [price, setPrice] = useState<string>("");
+  const [size, setSize] = useState<string>("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Calculate order value
+  const orderValue = price && size ? Number(price) * Number(size) : null;
+
+  // Determine if button should be enabled
+  const isValid =
+    price !== "" &&
+    size !== "" &&
+    Number(price) > 0 &&
+    Number(size) > 0 &&
+    isConnected &&
+    !!address;
+
+  const handleSubmit = async () => {
+    if (!isValid || !address) return;
+
+    setError(null);
+    setIsSubmitting(true);
+
+    try {
+      const result = await submitOrder({
+        user_id: address,
+        pair_id: `${assets.BASE}/${assets.QUOTE}`,
+        amount: Number(size),
+        price: Number(price),
+        side: side === "buy", // true for buy, false for sell
+      });
+
+      // Add slight delay before resetting form
+      setTimeout(() => {
+        // Reset form on success
+        setPrice("");
+        setSize("");
+        // Show success message
+        setError(null);
+      }, 500);
+
+      return result;
+    } catch (err: any) {
+      console.error("Limit order submission error:", err);
+
+      // Extract detailed error message if available
+      let errorMessage = "Failed to submit order. Please try again.";
+      if (err.message) {
+        // Check if it's a server error with details
+        const serverErrorMatch = err.message.match(/Error: \d+ - (.*)/);
+        if (serverErrorMatch && serverErrorMatch[1]) {
+          errorMessage = serverErrorMatch[1];
+        } else {
+          errorMessage = err.message;
+        }
+      }
+
+      setError(errorMessage);
+    } finally {
+      // Delay setting isSubmitting to false slightly to ensure state is updated correctly
+      setTimeout(() => {
+        setIsSubmitting(false);
+      }, 200);
+    }
+  };
+
+  return (
+    <div className="space-y-2 flex flex-col h-full">
+      <div className="space-y-4 flex-grow">
+        <AvailableBalance side={side} assets={assets} balances={balances} />
+
+        <InputField
+          label={`Price (${assets.QUOTE})`}
+          value={price}
+          onChange={(e) => setPrice(e.target.value)}
+          asset={assets.QUOTE}
+        />
+
+        <InputField
+          label={`Size (${assets.BASE})`}
+          value={size}
+          onChange={(e) => setSize(e.target.value)}
+          asset={assets.BASE}
+        />
+
+        <div>
+          <label className="block text-sm text-gray-400 mb-1">
+            Order Value
+          </label>
+          <div className="text-sm">
+            {orderValue ? `${orderValue.toFixed(2)} ${assets.QUOTE}` : "N/A"}
+          </div>
+        </div>
+
+        {error && <div className="text-sm text-[#f23645] mt-2">{error}</div>}
+      </div>
+
+      <FeesDisplay />
+      <OrderButton
+        side={side}
+        isValid={isValid}
+        onClick={handleSubmit}
+        isSubmitting={isSubmitting}
+      />
     </div>
   );
 };
@@ -210,69 +485,103 @@ export const TradingForm = ({
   setOrderType,
   side,
   setSide,
-}: TradingFormProps) => (
-  <div className="flex flex-col h-full">
-    <div className="bg-[#0f0f0f] rounded-lg overflow-hidden flex-grow flex flex-col">
-      <div className="flex border-b border-gray-800 relative">
-        <button
-          className={`flex-1 py-3 text-center text-sm font-medium ${
-            orderType === "market" ? "text-white" : "text-gray-400"
-          }`}
-          onClick={() => setOrderType("market")}
-        >
-          Market
-        </button>
-        <button
-          className={`flex-1 py-3 text-center text-sm font-medium ${
-            orderType === "limit" ? "text-white" : "text-gray-400"
-          }`}
-          onClick={() => setOrderType("limit")}
-        >
-          Limit
-        </button>
+  currentPrice,
+  isLoading,
+  marketPair = "POL/USDC",
+}: TradingFormProps) => {
+  const { isConnected } = useAccount();
 
-        {/* Animated bottom border */}
-        <div
-          className="absolute bottom-0 h-0.5 bg-[#1e53e5] transition-all duration-300 ease-in-out"
-          style={{
-            left: orderType === "market" ? "0" : "50%",
-            width: "50%",
-          }}
-        />
-      </div>
+  // Extract base and quote assets from the market pair
+  const [baseAsset, quoteAsset] = marketPair.split("/");
 
-      <div className="p-4 flex flex-col h-full">
-        <div className="flex mb-4">
+  // Create the ASSETS object
+  const ASSETS = {
+    BASE: baseAsset || DEFAULT_ASSETS.BASE,
+    QUOTE: quoteAsset || DEFAULT_ASSETS.QUOTE,
+  };
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="bg-[#0f0f0f] rounded-lg overflow-hidden flex-grow flex flex-col">
+        <div className="flex border-b border-gray-800 relative">
           <button
-            className={`flex-1 py-2 rounded-md ${
-              side === "buy"
-                ? "bg-[#089981]"
-                : "bg-[#0f0f0f] border border-gray-700"
+            className={`flex-1 py-3 text-center text-sm font-medium ${
+              orderType === "market" ? "text-white" : "text-gray-400"
             }`}
-            onClick={() => setSide("buy")}
+            onClick={() => setOrderType("market")}
           >
-            Buy
+            Market
           </button>
           <button
-            className={`flex-1 py-2 rounded-md ml-2 ${
-              side === "sell"
-                ? "bg-[#f23645]"
-                : "bg-[#0f0f0f] border border-gray-700"
+            className={`flex-1 py-3 text-center text-sm font-medium ${
+              orderType === "limit" ? "text-white" : "text-gray-400"
             }`}
-            onClick={() => setSide("sell")}
+            onClick={() => setOrderType("limit")}
           >
-            Sell
+            Limit
           </button>
+
+          {/* Animated bottom border */}
+          <div
+            className="absolute bottom-0 h-0.5 bg-[#1e53e5] transition-all duration-300 ease-in-out"
+            style={{
+              left: orderType === "market" ? "0" : "50%",
+              width: "50%",
+            }}
+          />
         </div>
 
-        {orderType === "market" ? (
-          <MarketOrderForm side={side} />
-        ) : (
-          <LimitOrderForm side={side} />
-        )}
+        <div className="p-4 flex flex-col h-full">
+          <div className="flex mb-4">
+            <button
+              className={`flex-1 py-2 rounded-md ${
+                side === "buy"
+                  ? "bg-[#089981]"
+                  : "bg-[#0f0f0f] border border-gray-700"
+              }`}
+              onClick={() => setSide("buy")}
+            >
+              Buy
+            </button>
+            <button
+              className={`flex-1 py-2 rounded-md ml-2 ${
+                side === "sell"
+                  ? "bg-[#f23645]"
+                  : "bg-[#0f0f0f] border border-gray-700"
+              }`}
+              onClick={() => setSide("sell")}
+            >
+              Sell
+            </button>
+          </div>
+
+          {!isConnected && (
+            <div className="mb-4 p-3 bg-gray-800 text-gray-300 rounded-md text-sm text-center">
+              Please connect your wallet to place an order
+            </div>
+          )}
+
+          {orderType === "market" ? (
+            <MarketOrderForm
+              side={side}
+              orderType={orderType}
+              currentPrice={currentPrice}
+              isLoading={isLoading}
+              assets={ASSETS}
+              balances={BALANCES}
+            />
+          ) : (
+            <LimitOrderForm
+              side={side}
+              orderType={orderType}
+              assets={ASSETS}
+              balances={BALANCES}
+            />
+          )}
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 export default TradingForm;
