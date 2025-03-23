@@ -27,63 +27,63 @@ pub fn block_proof(
     let block = input.block;
     let computed_hash = block.hash();
     
-    println!("Block ID: {}", block.id);
-    println!("Computed hash: {:?}", computed_hash);
-    println!("Expected hash: {:?}", input.hash);
+    // println!("Block ID: {}", block.id);
+    // println!("Computed hash: {:?}", computed_hash);
+    // println!("Expected hash: {:?}", input.hash);
 
     let user_balance_hash = input.user_balance_hash;
     let previous_user_balance_hash = input.previous_user_balance_hash;
 
     let computed_previous_user_balance_hash = input.previous_user_balance_state.hash();
-    println!("Computed previous user balance hash: {:?}", computed_previous_user_balance_hash);
-    println!("Expected previous user balance hash: {:?}", previous_user_balance_hash);
+    // println!("Computed previous user balance hash: {:?}", computed_previous_user_balance_hash);
+    // println!("Expected previous user balance hash: {:?}", previous_user_balance_hash);
     
     if computed_hash != input.hash {
-        println!("❌ Block hash verification failed");
+        // println!("❌ Block hash verification failed");
         return false;
     }
 
     if computed_previous_user_balance_hash != previous_user_balance_hash {
-        println!("❌ Previous user balance hash verification failed");
+        // println!("❌ Previous user balance hash verification failed");
         return false;
     }
 
     let mut user_balance_state = input.previous_user_balance_state.clone();
-    println!("Initial user state: {:?}", user_balance_state);
+    // println!("Initial user state: {:?}", user_balance_state);
 
     // replay the block to update user balances
     for (pair_id, entries) in &block.logs {
-        println!("Processing pair: {}", pair_id);
+        // println!("Processing pair: {}", pair_id);
         for matched_entry in entries {
-            println!("  Processing matched entry: amount={}", matched_entry.matched_amount);
+            // println!("  Processing matched entry: amount={}", matched_entry.matched_amount);
             let buy_order = &matched_entry.buy_order;
             let sell_order = &matched_entry.sell_order;
             let matched_amount = matched_entry.matched_amount;
 
-            println!("    Buy order: user={}, amount={}", buy_order.user_id, matched_amount);
+            // println!("    Buy order: user={}, amount={}", buy_order.user_id, matched_amount);
             // Process buy order
             {
                 let user_id = buy_order.user_id.clone();
                 if let Some(user) = user_balance_state.users.get_mut(&user_id) {
-                    println!("    User {} balance before: {}", user_id, user.balances);
+                    // println!("    User {} balance before: {}", user_id, user.balances);
                     user.balances += matched_amount;
-                    println!("    User {} balance after: {}", user_id, user.balances);
+                    // println!("    User {} balance after: {}", user_id, user.balances);
                 } else {
-                    println!("❌ Buy user not found: {}", user_id);
+                    // println!("❌ Buy user not found: {}", user_id);
                     return false;
                 }
             }
             
-            println!("    Sell order: user={}, amount={}", sell_order.user_id, matched_amount);
+            // println!("    Sell order: user={}, amount={}", sell_order.user_id, matched_amount);
             // Process sell order
             {
                 let user_id = sell_order.user_id.clone();
                 if let Some(user) = user_balance_state.users.get_mut(&user_id) {
-                    println!("    User {} balance before: {}", user_id, user.balances);
+                    // println!("    User {} balance before: {}", user_id, user.balances);
                     user.balances -= matched_amount;
-                    println!("    User {} balance after: {}", user_id, user.balances);
+                    // println!("    User {} balance after: {}", user_id, user.balances);
                 } else {
-                    println!("❌ Sell user not found: {}", user_id);
+                    // println!("❌ Sell user not found: {}", user_id);
                     return false;
                 }
             }
