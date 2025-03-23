@@ -2,7 +2,6 @@ use alloy_sol_types::sol;
 use serde::{Serialize, Deserialize};
 use std::cmp::Ordering;
 use std::collections::{HashMap, VecDeque};
-use std::time::{SystemTime, UNIX_EPOCH};
 use std::hash::{Hash, Hasher};
 use std::collections::hash_map::DefaultHasher;
 use serde_json;
@@ -38,10 +37,7 @@ impl Order {
         price: u64, 
         side: bool
     ) -> Self {
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
+        let now = 1000; // Fixed timestamp for deterministic behavior
         
         Self { 
             id, user_id, pair_id, amount,
@@ -97,10 +93,7 @@ impl PartialOrd for MatchedEntry {
 impl MatchedEntry {
     pub fn new(buy_order: Order) -> Self {
         Self {
-            timestamp: SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_secs(),
+            timestamp: 1000, // Fixed timestamp for deterministic behavior
             buy_order: buy_order.clone(),
             sell_order: Order::new(buy_order.id, buy_order.user_id, buy_order.pair_id, buy_order.amount, buy_order.price, !buy_order.side),
             matched_amount: buy_order.amount

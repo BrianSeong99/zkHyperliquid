@@ -4,6 +4,7 @@ name = "block-proof-program"
 edition = "2021"
 
 [dependencies]
-alloy-sol-types = { workspace = true }
-sp1-zkvm = "4.0.0"
+alloy-sol-types = "0.6.0"
+sp1-zkvm = { git = "https://github.com/succinctlabs/sp1.git" }
 block-proof-lib = { path = "../lib" }
+getrandom = { version = "0.2", features = ["custom"] }

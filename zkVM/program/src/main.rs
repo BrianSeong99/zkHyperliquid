@@ -8,6 +8,12 @@
 #![no_main]
 sp1_zkvm::entrypoint!(main);
 
+// Import our custom getrandom implementation
+#[cfg(feature = "custom")]
+mod custom_getrandom {
+    include!("../../lib/src/custom_getrandom.rs");
+}
+
 use alloy_sol_types::SolType;
 use block_proof_lib::{block_proof};
 use block_proof_lib::data::populate_block_data;

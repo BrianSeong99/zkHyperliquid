@@ -26,10 +26,7 @@ pub fn populate_block_data(num_orders: usize) -> BlockProofInput {
     let block1 = Block {
         id: "1".to_string(),
         last_block_hash: [0u8; 32],
-        timestamp: SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs(),
+        timestamp: 1000, // Fixed timestamp instead of SystemTime::now()
         length: matched_logs.len() as u64,
         logs: matched_logs,
     };
