@@ -4,7 +4,7 @@
 [![Rust](https://img.shields.io/badge/Rust-nightly-B7410E)](https://www.rust-lang.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-zkHyperliquid is a platform that leverages zero-knowledge proofs and the Vapp framework to create a secure, high-performance trading platform with cross-chain interoperability via AggLayer.
+zkHyperliquid is a high-performance trading platform built on zero-knowledge proofs. It uses the Vapp framework to enable secure and cross-chain interoperability via AggLayer.
 
 ![zkHyperliquid](./assets/app.png)
 
