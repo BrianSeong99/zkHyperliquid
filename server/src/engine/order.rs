@@ -84,6 +84,8 @@ impl Order {
         self.filled_amount += amount;
         if self.is_filled() {
             self.status = OrderStatus::Filled;
+        } else if self.filled_amount > 0 {
+            self.status = OrderStatus::PartiallyFilled;
         }
     }
 }

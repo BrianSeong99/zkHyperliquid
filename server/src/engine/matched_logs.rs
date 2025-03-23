@@ -58,6 +58,7 @@ impl MatchedLogs {
     }
 
     pub async fn add_matched_entry(&mut self, buy_order: Order, sell_order: Order, matched_amount: u64) {
+
         let timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
