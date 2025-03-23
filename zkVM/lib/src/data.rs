@@ -1,21 +1,30 @@
 // prepare data for zkVM
 
 use crate::types::*;
-use rand;
 use std::collections::{HashMap, VecDeque};
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::fmt::Write;
+
+// Add a simple deterministic random function
+fn deterministic_random(seed: usize) -> u64 {
+    // Simple deterministic hash function
+    let mut value = seed as u64;
+    value = value.wrapping_mul(6364136223846793005);
+    value = value.wrapping_add(1442695040888963407);
+    value
+}
 
 pub fn populate_block_data(num_orders: usize) -> BlockProofInput {
     // Generate all orders first
     let mut orders = Vec::with_capacity(num_orders);
     for i in 0..num_orders {
+        // Use our deterministic random function instead of rand::random
         orders.push(Order::new(
             i.to_string(),
             format!("user{}", (i % 3) + 1),
             "POL-ETH".to_string(),
-            50 + rand::random::<u64>() % 51, // 50-100
-            95 + rand::random::<u64>() % 11, // 95-105
+            50 + deterministic_random(i * 2) % 51, // 50-100
+            95 + deterministic_random(i * 2 + 1) % 11, // 95-105
             true
         ));
     }
