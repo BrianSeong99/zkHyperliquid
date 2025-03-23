@@ -91,7 +91,11 @@ impl MatchedLogs {
     pub fn pop_top_n_matched_logs(&mut self, pair_id: &str, n: usize) -> Option<Vec<MatchedEntry>> {
         let mut result = Vec::new();
         if let Some(queue) = self.logs.get_mut(pair_id) {
-            for _ in 0..n {
+            let mut num = queue.len();
+            if n < num {
+                num = n
+            }
+            for _ in 0..num {
                 if let Some(matched_entry) = queue.pop_front() {
                     result.push(matched_entry);
                 } else {
@@ -128,5 +132,9 @@ impl MatchedLogs {
                 orders
             })
             .collect()
+    }
+
+    pub fn get_all_pair_ids(&self) -> Vec<String> {
+        self.logs.keys().cloned().collect()
     }
 }

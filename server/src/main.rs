@@ -13,7 +13,8 @@ use std::sync::{Arc, RwLock};
 use tokio::sync::mpsc;
 use std::net::SocketAddr;
 use tokio::sync::Mutex;
-
+use std::time::Duration;
+use crate::block::{BlockManager, run_block_pipeline};
 use crate::api::orders::{AppState, place_order, get_orders, get_order_by_id, cancel_order};
 use crate::api::users::{create_user, get_user, update_balance, get_user_orders};
 // use crate::api::blocks::get_matched_orders;
@@ -31,7 +32,10 @@ async fn main() {
     // Set up the order matching engine
     let order_tx = run_order_pipeline(0.0, user_db.clone()).await;
     
-    
+    // Set up the block manager
+    let block_manager = BlockManager::new(Duration::from_millis(10), 100, 0, "".to_string(), "mongodb://localhost:27017".to_string(), true);
+    run_block_pipeline(block_manager, Duration::from_millis(20)).await;
+
     // Create the application state
     let app_state = AppState {
         order_tx,

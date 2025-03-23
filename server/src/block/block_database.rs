@@ -67,6 +67,7 @@ impl BlockDatabase {
                 let id = doc.get_str("id")?.to_string();
                 let timestamp = doc.get_i64("timestamp")? as u64;
                 let length = doc.get_i64("length")? as u64;
+                let last_block_hash = doc.get_str("last_block_hash")?.to_string();
                 
                 // Deserialize logs from the document
                 let logs = if let Ok(logs_json) = doc.get_str("logs") {
@@ -80,6 +81,7 @@ impl BlockDatabase {
                     timestamp,
                     length,
                     logs,
+                    last_block_hash,
                 };
                 
                 Ok(Some(block))
@@ -131,7 +133,7 @@ impl BlockDatabase {
             let id = doc.get_str("id")?.to_string();
             let timestamp = doc.get_i64("timestamp")? as u64;
             let length = doc.get_i64("length")? as u64;
-            
+            let last_block_hash = doc.get_str("last_block_hash")?.to_string();
             // Deserialize logs from the document
             let logs = if let Ok(logs_json) = doc.get_str("logs") {
                 deserialize_logs(logs_json)?
@@ -144,6 +146,7 @@ impl BlockDatabase {
                 timestamp,
                 length,
                 logs,
+                last_block_hash,
             };
             
             blocks.push(block);
@@ -272,7 +275,7 @@ mod tests {
             }
         ]))]);
         
-        let block = Block::new(logs);
+        let block = Block::new_with_entries(logs, "".to_string());
         block_db.save_block(&block).await.unwrap();
 
         let retrieved_block = block_db.get_block(&block.id).await.unwrap();
@@ -322,7 +325,7 @@ mod tests {
             }
         ]))]);
         
-        let block = Block::new(logs);
+        let block = Block::new_with_entries(logs, "".to_string());
         block_db.save_block(&block).await.unwrap();
 
         let retrieved_blocks = block_db.get_latest_blocks(1).await.unwrap();
