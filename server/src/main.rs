@@ -1,6 +1,7 @@
 mod api;
 mod engine;
 mod user;
+mod block;
 
 use engine::{run_order_pipeline, MATCHED_LOGS, ORDERS_MEMPOOL};
 use user::{UserDatabase};

@@ -5,12 +5,13 @@ use std::cmp::Ordering;
 use std::sync::{Arc};
 use tokio::sync::Mutex;
 use crate::user::UserDatabase;
+use serde::{Serialize, Deserialize};
 
 // Matched logs are used to store the orders that have been matched
 // Each matched log will have a unique id, and a list of orders
 // It is a queue, so the oldest order will be at the front
 // and the newest order will be at the back
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MatchedEntry {
     pub timestamp: u64, 
     pub buy_order: Order, 
