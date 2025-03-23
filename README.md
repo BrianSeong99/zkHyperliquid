@@ -26,9 +26,10 @@ zkHyperliquid is a high-performance trading platform built on zero-knowledge pro
 │       ├── api/           # REST API endpoints for orders and users
 │       ├── block/         # Block creation and database management
 │       ├── engine/        # Order matching engine and mempool
-│       ├── oracle/        # Price oracle integration
+│       ├── oracle/        # Oracle to get L1 state, to confirm settlement
 │       ├── sender/        # Transaction sender services
 │       └── user/          # User management and authentication
+├── zkVM/                  # SP1 project to generate ZKPs
 └── contract/              # Foundry-based Solidity smart contracts
     ├── src/               # Contract source code (RollupBridge)
     ├── script/            # Deployment scripts
