@@ -4,7 +4,7 @@ import { Settings } from "lucide-react";
 
 export function Header() {
   return (
-    <header className="w-full px-6 py-2 flex items-center justify-between bg-[#0f0f0f] text-white border-b border-gray-800">
+    <header className="w-full px-6 py-2 h-[50px] flex items-center justify-between bg-[#0f0f0f] text-white border-b border-gray-800">
       <div className="flex items-center gap-8">
         {/* Logo */}
         <div className="flex items-center gap-2">

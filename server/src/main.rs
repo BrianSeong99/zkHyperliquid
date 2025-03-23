@@ -8,12 +8,14 @@ use user::{UserDatabase};
 use axum::{
     routing::{get, post, put, delete},
     Router,
+    http::{HeaderValue, Method, header},
 };
 use std::sync::{Arc, RwLock};
 use tokio::sync::mpsc;
 use std::net::SocketAddr;
 use tokio::sync::Mutex;
 use std::time::Duration;
+use tower_http::cors::{CorsLayer, Any};
 use crate::block::{BlockManager, run_block_pipeline};
 use crate::api::orders::{AppState, place_order, get_orders, get_order_by_id, cancel_order};
 use crate::api::users::{create_user, get_user, update_balance, get_user_orders};
@@ -42,6 +44,14 @@ async fn main() {
         user_db,
     };
     
+    // Configure CORS
+    let cors = CorsLayer::new()
+        // Allow requests from the frontend origin
+        .allow_origin(["http://localhost:3001".parse::<HeaderValue>().unwrap()])
+        .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
+        .allow_headers([header::CONTENT_TYPE, header::AUTHORIZATION])
+        .allow_credentials(true);
+    
     // Build our application with routes
     // Order routes
     let orders_router = Router::new()
@@ -60,7 +70,9 @@ async fn main() {
     
     let app = Router::new()
         .merge(orders_router)
-        .merge(users_router);
+        .merge(users_router)
+        .layer(cors);  // Add the CORS middleware
+        
     // Run the server
     println!("Server listening on 0.0.0.0:3000");
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();

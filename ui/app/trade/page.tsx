@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Header } from "@/components/Header";
 import { OrderBookAndTrades } from "@/components/OrderBookAndTrades";
 import { PositionsAndTrades } from "@/components/PositionsAndTrades";
@@ -8,22 +8,48 @@ import WalletActions from "@/components/WalletActions";
 import MarketChartSection from "@/components/MarketChartSection";
 import { TradingForm } from "@/components/TradingForm";
 import { ArrowDownUp } from "lucide-react";
+import {
+  fetchCryptoMarketData,
+  type CryptoMarketData,
+} from "@/services/cryptoApi";
 
 export default function TradePage() {
   const [orderType, setOrderType] = useState<"market" | "limit">("limit");
   const [side, setSide] = useState<"buy" | "sell">("buy");
   const [marketPair, setMarketPair] = useState<string>("POL/USDC");
-
-  // Market data (would come from API in a real app)
-  const marketData = {
-    price: "13.024",
-    change: -4.6,
+  const [marketData, setMarketData] = useState<CryptoMarketData>({
+    price: "0.00",
+    change: 0,
     stats: [
-      { label: "24h Volume", value: "$4.35B" },
-      { label: "Market Cap", value: "$134.84B" },
-      { label: "Contract", value: "0x0d01...1ec" },
+      { label: "24h Volume", value: "$0" },
+      { label: "Market Cap", value: "$0" },
+      { label: "Contract", value: "N/A" },
     ],
-  };
+  });
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  // Fetch market data on component mount and when market pair changes
+  useEffect(() => {
+    const fetchData = async () => {
+      setIsLoading(true);
+      try {
+        const data = await fetchCryptoMarketData(marketPair);
+        setMarketData(data);
+      } catch (error) {
+        console.error("Error fetching market data:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+
+    // Refresh data every 30 seconds
+    const intervalId = setInterval(fetchData, 30000);
+
+    // Clean up interval on unmount
+    return () => clearInterval(intervalId);
+  }, [marketPair]);
 
   return (
     <div className="flex flex-col h-screen bg-[#2e2e2e]">
@@ -38,6 +64,8 @@ export default function TradePage() {
               price={marketData.price}
               change={marketData.change}
               stats={marketData.stats}
+              isLoading={isLoading}
+              onMarketPairChange={setMarketPair}
             />
           </div>
 
@@ -53,6 +81,9 @@ export default function TradePage() {
               setOrderType={setOrderType}
               side={side}
               setSide={setSide}
+              currentPrice={marketData.price}
+              isLoading={isLoading}
+              marketPair={marketPair}
             />
           </div>
         </div>

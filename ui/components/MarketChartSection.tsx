@@ -6,6 +6,8 @@ interface MarketChartSectionProps {
   price: string;
   change: number;
   stats: MarketStat[];
+  isLoading?: boolean;
+  onMarketPairChange?: (marketPair: string) => void;
 }
 
 const MarketChartSection = ({
@@ -13,6 +15,8 @@ const MarketChartSection = ({
   price,
   change,
   stats,
+  isLoading = false,
+  onMarketPairChange,
 }: MarketChartSectionProps) => {
   return (
     <div className="h-full flex flex-col">
@@ -21,6 +25,8 @@ const MarketChartSection = ({
         price={price}
         change={change}
         stats={stats}
+        isLoading={isLoading}
+        onMarketPairChange={onMarketPairChange}
       />
       <TradingChart />
     </div>
