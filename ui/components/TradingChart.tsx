@@ -25,11 +25,7 @@ function TradingViewWidget() {
           "hide_side_toolbar": false,
           "allow_symbol_change": false,
           "calendar": false,
-          "support_host": "https://www.tradingview.com",
-          "overrides": {
-            "paneProperties.backgroundGradientStartColor": "#020024",
-            "paneProperties.backgroundGradientEndColor": "#4f485e"
-          }
+          "support_host": "https://www.tradingview.com"
         }`;
 
       container.current.appendChild(script);
@@ -45,10 +41,9 @@ function TradingViewWidget() {
   }, []);
 
   return (
-    <div
-      className="tradingview-widget-container h-full w-full"
-      ref={container}
-    ></div>
+    <div className="rounded-lg overflow-hidden h-full w-full">
+      <div className="tradingview-widget-container" ref={container}></div>
+    </div>
   );
 }
 
